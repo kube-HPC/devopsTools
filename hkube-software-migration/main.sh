@@ -6,5 +6,5 @@ then
     ./scripts/linux_compile.sh $1
 else
     echo 'found Windows OS , start process....'
-    ./scripts/windows_compile.py
+    ./scripts/windows_compile.py $1
 fi
