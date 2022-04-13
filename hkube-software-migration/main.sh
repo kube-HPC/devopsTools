@@ -3,8 +3,7 @@
 if [ -z "${OS}" ]
 then
     echo 'found linux OS , start process....'
-    ./scripts/linux_compile.sh $1
+    ./scripts/compile.sh $1
 else
-    echo 'found Windows OS , start process....'
-    ./scripts/windows_compile.py $1
+    echo 'no support on windows OS system'
 fi

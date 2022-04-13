@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo 'running on linux OS'
-rm -rf data
+echo $PWD
+if [ -d ./data ]; then rm -rf ./data; fi
 mkdir -p data/pipelines/
 PIEPLINES_LIST=$(echo inputJsonFile.json)
 END=$1
@@ -61,4 +61,3 @@ done
 done
 zip -r data$( date +"%S-%M-%H_%m-%d-%y").zip ./data/
 rm -rf data/
-fi

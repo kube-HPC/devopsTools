@@ -2,7 +2,7 @@
 this tool use to migration pipelines between hkube softwares
 requierments:
     -   linux machine
-    -   jq , zip (should allready on the machine)
+    -   jq , zip (should allready exists on the machine)
 # 
     - verify that you are connect to your docker registry
     - running from linux machine
