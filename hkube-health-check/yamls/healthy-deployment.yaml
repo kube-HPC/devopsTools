@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healty-hkube
+  labels:
+    app: healty-hkube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healty-hkube
+  template:
+    metadata:
+      labels:
+        app: healty-hkube
+    spec:    
+      containers:
+        - name: flask
+          image: "flask:flask"
+          env:
+          -  name: MASTER_CLUSTER_IP
+             value: https://192.168.49.2:8443
+          resources:  
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 5000
+      serviceAccountName: algorithm-operator-serviceaccount
+      serviceAccount: algorithm-operator-serviceaccount    

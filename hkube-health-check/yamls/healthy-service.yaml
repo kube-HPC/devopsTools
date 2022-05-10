@@ -1,0 +1,14 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: healty-hkube
+  labels:
+    app: healty-hkube
+spec:
+  selector:
+    app: healty-hkube
+  ports:
+    - name: server
+      protocol: TCP
+      port: 5000
+      targetPort: 5000
