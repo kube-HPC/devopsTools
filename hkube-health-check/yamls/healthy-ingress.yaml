@@ -1,9 +1,9 @@
 apiVersion:  networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: healty-hkube
+  name: health-hkube
   labels:
-    app: healty-hkube
+    app: health-hkube
 spec:
   rules:
     - http:
@@ -11,7 +11,7 @@ spec:
         - path: /
           backend:
             service:
-              name: healty-hkube
+              name: health-hkube
               port:
                 number: 5000
           pathType: Prefix

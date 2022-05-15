@@ -1,12 +1,12 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: healty-hkube
+  name: health-hkube
   labels:
-    app: healty-hkube
+    app: health-hkube
 spec:
   selector:
-    app: healty-hkube
+    app: health-hkube
   ports:
     - name: server
       protocol: TCP

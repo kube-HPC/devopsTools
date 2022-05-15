@@ -1,25 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: healty-hkube
+  name: health-hkube
   labels:
-    app: healty-hkube
+    app: health-hkube
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: healty-hkube
+      app: health-hkube
   template:
     metadata:
       labels:
-        app: healty-hkube
+        app: health-hkube
     spec:    
       containers:
         - name: flask
-          image: "flask:flask"
+          image: "hkube/health:1.0"
           env:
           -  name: MASTER_CLUSTER_IP
              value: https://192.168.49.2:8443
+          -  name: REDIS_REPLICAS
+             value: '3'
+          -  name: ETCD_REPLICAS
+             value: '3' 
           resources:  
             requests:
               memory: "64Mi"
