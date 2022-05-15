@@ -19,11 +19,11 @@ spec:
           image: ${imageName}
           env:
           -  name: MASTER_CLUSTER_IP
-             value: https://192.168.49.2:8443
+             value: $(masterClusterIP)
           -  name: REDIS_REPLICAS
-             value: '3'
+             value: $(redis_replicas)
           -  name: ETCD_REPLICAS
-             value: '3' 
+             value: $(etcd_replicas)
           resources:  
             requests:
               memory: "64Mi"
