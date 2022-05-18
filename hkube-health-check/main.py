@@ -57,12 +57,7 @@ def health():
     os.system('rm -rf hkube-etcd*.json && rm -rf hkube-redis*.json')
     
     returnFile.write('Redis\n---------\n')
-    if int(redisReplicas) > len(redisResult.keys()):
-        returnFile.write('\n  replicas:' + redisReplicas)
-        returnFile.write('\n  replicas and exists pods are not match, please check!')
-    else:
-        returnFile.write('\n  replicas:' + redisReplicas)
-        returnFile.write('\n  replicas and exists pods are match!')
+    returnFile.write('\n  replicas:' + redisReplicas)
     for value in redisResult.keys():
         returnFile.write('\n\n  '+value+'\n  ------------')
         temp=redisResult[value]
@@ -77,12 +72,7 @@ def health():
 
 
     returnFile.write('\n\n\nEtcd\n---------\n')
-    if int(etcdReplicas) > len(etcdResult.keys()):
-        returnFile.write('\n    replicas:' + etcdReplicas)
-        returnFile.write('\n    replicas and exists pods are not match, please check!')
-    else:
-        returnFile.write('\n    replicas:' + etcdReplicas)
-        returnFile.write('\n    replicas and exists pods are match!')
+    returnFile.write('\n    replicas:' + etcdReplicas)
     for value in etcdResult.keys():
         temp=etcdResult[value]
         for container in temp:
