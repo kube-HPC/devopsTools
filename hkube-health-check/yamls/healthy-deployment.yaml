@@ -16,14 +16,14 @@ spec:
     spec:    
       containers:
         - name: flask
-          image: ${imageName}
+          image:  hkube-health:1.0
           env:
           -  name: MASTER_CLUSTER_IP
-             value: $(masterClusterIP)
+             value: 'https://192.168.49.2:8443'
           -  name: REDIS_REPLICAS
-             value: $(redis_replicas)
+             value: '3'
           -  name: ETCD_REPLICAS
-             value: $(etcd_replicas)
+             value: '3'
           resources:  
             requests:
               memory: "64Mi"
@@ -33,5 +33,5 @@ spec:
               cpu: "500m"
           ports:
             - containerPort: 5000
-      serviceAccountName: algorithm-operator-serviceaccount
-      serviceAccount: algorithm-operator-serviceaccount    
+      serviceAccountName: cleanup-serviceaccount
+      serviceAccount: cleanup-serviceaccount

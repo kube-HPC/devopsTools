@@ -12,77 +12,102 @@ etcdReplicas= os.getenv('ETCD_REPLICAS')
 redisReplicas= os.getenv('REDIS_REPLICAS')
 redisPrefix='hkube-redis-ha-server'
 etcdPrefix='hkube-etcd'
-currentStatus='.status.containerStatuses'
+giteaPrefix='hkube-gitea'
+mongoPrefix='hkube-mongodb'
 
 @app.route("/health")
 def health():
-
+    errorDic={}
+    coreFailed=0
+    thirdPFailed=0
     fullDic={}
     redisResult={}
     etcdResult={}
+    giteaResult={}
+    mongoResult={}
+    coreResult={}
     os.system('rm -rf result.txt')
-    returnFile=open('result.txt','w')
-    returnFile.write('Hkube Health Check\n------------------\n\n')
-    os.system('curl -X GET '+str(masterUrl)+'/api/v1/namespaces/default/pods/ --header "Authorization: Bearer '+str(TOKEN)+'" --insecure | jq . > all-pods.json')
+    os.system('curl -X GET '+str(masterUrl)+'/api/v1/namespaces/default/pods/ --header "Authorization: Bearer '+str(TOKEN)+'" --insecure | jq .items > all-pods.json')
     with open('all-pods.json', 'r') as jsonfile:
         allPods = json.load(jsonfile)
-    newDic=allPods['items']
     os.remove('all-pods.json')
-    for value in newDic:
+    
+    for value in allPods:
         tmpDic=value
-        podData=tmpDic['metadata']
-        if podData['name'] not in fullDic.keys():
-            tmpvalues=podData['name']
-            fullDic[tmpvalues]=[]
-    #check_redis,etcd
+        podData=tmpDic['metadata']['name']
+        if podData not in fullDic.keys():
+            fullDic[podData]=tmpDic['status']      
+    # check_redis,etcd
     for pod in fullDic.keys():
+        flag=1
         if redisPrefix in pod:
+            flag=0
             redisResult[str(redisPrefix)+'-'+str(len(redisResult.keys()))]=[]
         if etcdPrefix in pod:
+            flag=0
             etcdResult[str(etcdPrefix)+'-'+str(len(etcdResult.keys()))]=[]
+        if  giteaPrefix in pod:
+            flag=0
+            giteaResult[str(giteaPrefix)+'-'+str(len(giteaResult.keys()))]=[]
+        if  mongoPrefix in pod:
+            flag=0
+            mongoResult[str(mongoPrefix)+'-'+str(len(mongoResult.keys()))]=[]
+        if flag == 1:
+            coreResult[str(pod)]=[] 
 
+    for value in fullDic.keys():
+        temp=fullDic[value]
+        containerList=temp['containerStatuses']
+        for value2 in containerList:
+            status=str(value2['state'].keys()).replace("dict_keys(['","").replace("'])","")
+            if status != 'running':
+                if value in coreResult.keys():
+                    coreFailed=1
+                    errorDic[value]=containerList
+                else:
+                    thirdPFailed=1
+                    errorDic[value]=containerList
 
-    # collect data: status  
-    for value in redisResult.keys():
-        podDic={}
-        os.system('curl -X GET '+str(masterUrl)+'/api/v1/namespaces/default/pods/'+value+' --header "Authorization: Bearer '+str(TOKEN)+'" --insecure | jq '+currentStatus+' > '+value+'.json')
-        with open(value+'.json','r') as valueJsonFile:
-            jsonValue= json.load(valueJsonFile)
-        redisResult[value]=jsonValue
-    for value2 in etcdResult.keys():    
-        os.system('curl -X GET '+str(masterUrl)+'/api/v1/namespaces/default/pods/'+value2+' --header "Authorization: Bearer '+str(TOKEN)+'" --insecure | jq '+currentStatus+' > '+value2+'.json')
-        with open(value2+'.json','r') as valueJsonFile:
-            jsonValue= json.load(valueJsonFile)
-        etcdResult[value2]=jsonValue
-    os.system('rm -rf hkube-etcd*.json && rm -rf hkube-redis*.json')
     
-    returnFile.write('Redis\n---------\n')
-    returnFile.write('\n  replicas:' + redisReplicas)
-    for value in redisResult.keys():
-        returnFile.write('\n\n  '+value+'\n  ------------')
-        temp=redisResult[value]
-        for container in temp:
-            returnFile.write('\n    Name: '+container['name']+'')
-            returnFile.write('\n    state: \n')
-            temp1=container['state']
-            for value in temp1.keys():
-                returnFile.write('      '+str(value)+' :'+str(temp1[value])+'\n')
-            returnFile.write('      Ready: '+str(container['ready']))
-
-
-
-    returnFile.write('\n\n\nEtcd\n---------\n')
-    returnFile.write('\n    replicas:' + etcdReplicas)
-    for value in etcdResult.keys():
-        temp=etcdResult[value]
-        for container in temp:
-            returnFile.write('\n\n  '+value+'\n  ------------')
-            returnFile.write('\n    Name: '+container['name']+'\n')
-            returnFile.write('\n    state: \n')
-            temp1=container['state']
-            for value in temp1.keys():
-                returnFile.write('      '+str(value)+' :'+str(temp1[value])+'\n')
-            returnFile.write('      Ready: '+str(container['ready'])+'\n')
-
+    returnFile=open('result.txt','w')
+    returnFile.write('Hkube Health Check\n------------------\n\nSUMMARY\n--------\n')
+    returnFile.write('\n  CORE\n  --------\n')
+    if coreFailed == 1:
+        returnFile.write('  cluster core not healthy ! please check logs\n')    
+    if coreFailed == 0:
+         returnFile.write('  all cluster pods core healthy !\n')
+    returnFile.write('\n  THIRD_PARTY\n  --------\n')
+    if thirdPFailed == 1:
+        returnFile.write('  cluster thirdparty pods not healthy ! please check logs\n')    
+    if thirdPFailed == 0:
+        returnFile.write('  all cluster pods thirdparty healthy !\n')    
+    if int(len(etcdResult)) != int(etcdReplicas):
+        returnFile.write('\n  there are issue with the replicas of etcd.\n    replicas: '+str(etcdReplicas)+'\n    exists: '+str(len(etcdResult)))
+    if int(len(redisResult)) != int(redisReplicas):
+        returnFile.write('\n\n  there are issue with the replicas of redis.\n    replicas: '+str(redisReplicas)+'\n    exists: '+str(len(redisResult)))
+    if coreFailed == 0 and thirdPFailed == 0:
+        returnFile.write('\n\n\n\nNO ERROR LOGS NEEDED\n')
+    else:
+        returnFile.write('\n\n\n\nFULL ERROR LOGS\n-----------------\n')
+        #returnFile.write(str(errorDic))
+        for errorPod in errorDic.keys():
+            returnFile.write('\n\n  Pod Name: '+errorPod+'\n--------------------\n')
+            for container in errorDic[errorPod]:
+                returnFile.write('\n    Container Name: '+str(container['name']))
+                returnFile.write('\n    Container Status: '+str(container['state'].keys()).replace("dict_keys(['","").replace("'])","")+'')
+                massage=container['state']
+                try:
+                    temp=massage['waiting']
+                    reason=temp['reason']
+                    massage=temp['message']
+                    returnFile.write('\n    Reason: '+reason  )
+                    returnFile.write('\n    message: '+massage  +'\n')
+                except:
+                    temp=massage['running']
+                    started=temp['startedAt']
+                    returnFile.write('\n    Start at: '+started +'\n')
     returnFile.close()
+    
+    
+    
     return flask.send_file("result.txt")
