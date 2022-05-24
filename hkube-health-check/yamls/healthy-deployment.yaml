@@ -16,7 +16,7 @@ spec:
     spec:    
       containers:
         - name: flask
-          image:  hkube-health:1.0
+          image: flask:3.0
           env:
           -  name: MASTER_CLUSTER_IP
              value: 'https://192.168.49.2:8443'
