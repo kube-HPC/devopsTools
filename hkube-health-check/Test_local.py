@@ -6,10 +6,10 @@ from flask import Flask
 import flask
 
 app = Flask(__name__)
-TOKEN=os.popen('cat /var/run/secrets/kubernetes.io/serviceaccount/token').read()
-masterUrl= os.getenv('MASTER_CLUSTER_IP')
-etcdReplicas= os.getenv('ETCD_REPLICAS')
-redisReplicas= os.getenv('REDIS_REPLICAS')
+TOKEN=''
+masterUrl= 'https://192.168.49.2:8443'
+etcdReplicas= '3'
+redisReplicas= '3'
 redisPrefix='hkube-redis-ha-server'
 etcdPrefix='hkube-etcd'
 giteaPrefix='hkube-gitea'
@@ -89,7 +89,6 @@ def health():
     if thirdPFailed == 1:
         returnFile.write('  thirdparty pods not healthy ! please check logs\n')    
     if thirdPFailed == 0:
-              
         if int(len(etcdResult)) != int(etcdReplicas):
             returnFile.write('\n  there are issue with the replicas of etcd.\n    replicas: '+str(etcdReplicas)+'\n    exists: '+str(len(etcdResult)))
         elif int(len(redisResult)) != int(redisReplicas):
@@ -122,5 +121,6 @@ def health():
                             returnFile.write('\n         '+str(value)+' : '+str(temp[value]))
 
     
-    returnFile.close() 
+    # print(fullDic)
+    returnFile.close()    
     return flask.send_file("result.txt")
