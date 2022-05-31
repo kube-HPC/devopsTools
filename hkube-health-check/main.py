@@ -58,7 +58,7 @@ def health():
         with open('all-pods.json', 'r') as jsonfile:
             all = json.load(jsonfile)
         return all
-
+    allPods={}
     allPods=init()
     os.remove('all-pods.json')
     errorD={}
