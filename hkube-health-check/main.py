@@ -4,123 +4,101 @@ import json
 from flask import jsonify
 from flask import Flask
 import flask
+from storage import HKUBE_CORE,HKUBE_THIRD_PARTY
+
 
 app = Flask(__name__)
 TOKEN=os.popen('cat /var/run/secrets/kubernetes.io/serviceaccount/token').read()
 masterUrl= os.getenv('MASTER_CLUSTER_IP')
-etcdReplicas= os.getenv('ETCD_REPLICAS')
-redisReplicas= os.getenv('REDIS_REPLICAS')
-redisPrefix='hkube-redis-ha-server'
-etcdPrefix='hkube-etcd'
-giteaPrefix='hkube-gitea'
-mongoPrefix='hkube-mongodb'
-postgresPrefix='hkube-postgres'
+allPods={}
 @app.route("/health")
 def health():
-    errorDic={}
-    coreFailed=0
-    thirdPFailed=0
-    fullDic={}
-    redisResult={}
-    postgresResult={}
-    etcdResult={}
-    giteaResult={}
-    mongoResult={}
-    coreResult={}
-    os.system('rm -rf result.txt')
-    os.system('curl -X GET '+str(masterUrl)+'/api/v1/namespaces/default/pods/ --header "Authorization: Bearer '+str(TOKEN)+'" --insecure | jq .items > all-pods.json')
-
-    with open('all-pods.json', 'r') as jsonfile:
-        allPods = json.load(jsonfile)
-    os.remove('all-pods.json')
-    
-    for value in allPods:
-        tmpDic=value
-        podData=tmpDic['metadata']['name']
-        if podData not in fullDic.keys():
-            fullDic[podData]=tmpDic['status']      
-    # check_redis,etcd
-    for pod in fullDic.keys():
-        flag=1
-        if redisPrefix in pod:
-            flag=0
-            redisResult[str(redisPrefix)+'-'+str(len(redisResult.keys()))]=[]
-        if etcdPrefix in pod:
-            flag=0
-            etcdResult[str(etcdPrefix)+'-'+str(len(etcdResult.keys()))]=[]
-        if  giteaPrefix in pod:
-            flag=0
-            giteaResult[str(giteaPrefix)+'-'+str(len(giteaResult.keys()))]=[]
-        if  mongoPrefix in pod:
-            flag=0
-            mongoResult[str(mongoPrefix)+'-'+str(len(mongoResult.keys()))]=[]
-        if  postgresPrefix in pod:
-            flag=0
-            postgresResult[str(postgresPrefix)+'-'+str(len(postgresResult.keys()))]=[]
-        if flag == 1:
-            coreResult[str(pod)]=[] 
-
-    for value in fullDic.keys():
-        temp=fullDic[value]
+    def createDic(dic,label,error,types):
+        # Create Dictionary 
+        tempDic={}
+        tempDic['pod_name']=dictionaryMain['metadata']['name']
+        tempDic['node_name']=dictionaryMain['spec']['nodeName']
+        tempDic['service_account_name']=dictionaryMain['spec']['serviceAccount']
+        tempDic['containers_count']=str(len(dictionaryMain['spec']['containers']))
+        tempDic['containers_details']=[]
+        containerDic={}
         try:
-            containerList=temp['containerStatuses']
+            for value in dictionaryMain['status']['containerStatuses']:
+                containerDic['name']=value['name']
+                containerDic['image_name']=value['image']
+                containerDic['status']=value['state']
+                tempDic['containers_details'].append(containerDic)
+            dic[label]=tempDic
+            for failed in dictionaryMain['status']['containerStatuses']:
+                if failed['ready'] == False:
+                    tempDic['type']=types
+                    errorD[dictionaryMain['metadata']['name']]=tempDic
         except:
-            print('error to get data for '+ value)
-        for value2 in containerList:
-            status=str(value2['state'].keys()).replace("dict_keys(['","").replace("'])","")
-            if status != 'running' and status != 'terminated':
-                if value in coreResult.keys():
-                    coreFailed=1
-                    errorDic[value]=containerList
-                else:
-                    thirdPFailed=1
-                    errorDic[value]=containerList
+            errorD[dictionaryMain['metadata']['name']]=tempDic
+    def printOut(dictionaryToPrint,writeto):
+        for value in dictionaryToPrint:
+            writeto.write('\n---\n')
+            # writeto.write('type: hkube-cores')
+            writeto.write('deployment: '+value+'\n')
+            a=dictionaryToPrint[value]
+            for value2 in a.keys():
+                if type(a[value2]) == str:
+                    writeto.write('    '+value2 + ': '+str(a[value2])+'\n')
+                elif type(a[value2]) == list:
+                    temp=a[value2]
+                    for value in temp:
+                        Dic=value
+                        for var in Dic.keys():
+                            writeto.write('        '+var +' : '+str(Dic[var])+'\n')
 
+    def init():
+        os.system('rm -rf result.txt')
+        os.system('curl -X GET '+str(masterUrl)+'/api/v1/namespaces/default/pods/ --header "Authorization: Bearer '+str(TOKEN)+'" --insecure | jq .items > all-pods.json')
+
+        with open('all-pods.json', 'r') as jsonfile:
+            all = json.load(jsonfile)
+        return all
+
+    allPods=init()
+    os.remove('all-pods.json')
+    errorD={}
+    coresD={}
+    thirdPartyD={}
+    unknownD={}
+
+
+    for dictionaryMain in allPods:
+        try:
+            labelName=dictionaryMain['metadata']['labels']['app']
+            if labelName in HKUBE_THIRD_PARTY:
+                thirdPartyD[labelName]={}
+                createDic(thirdPartyD,labelName,'third-party')
+            elif labelName in HKUBE_CORE:
+                coresD[labelName]={}
+                createDic(coresD,labelName,errorD,'hkube-cores')
+            else:
+                unknownD[labelName]={}
+                createDic(unknownD,labelName,errorD,'third-party')
+        except:
+                unknownD[labelName]={}
+                createDic(unknownD,labelName,errorD,'third-party')
     
-    returnFile=open('result.txt','w')
-    returnFile.write('Hkube Health Check\n------------------\n\nSUMMARY\n--------\n')
-    returnFile.write('\n  HKUBE-CORE\n  --------\n')
-    if coreFailed == 1:
-        returnFile.write('  hkube-core pods are not healthy ! please check logs\n')
 
-    if coreFailed == 0:
-         returnFile.write('  hkube-core healthy !\n')
-    returnFile.write('\n  THIRD-PARTY\n  --------\n')
-    if thirdPFailed == 1:
-        returnFile.write('  thirdparty pods not healthy ! please check logs\n')    
-    if thirdPFailed == 0:
-              
-        if int(len(etcdResult)) != int(etcdReplicas):
-            returnFile.write('\n  there are issue with the replicas of etcd.\n    replicas: '+str(etcdReplicas)+'\n    exists: '+str(len(etcdResult)))
-        elif int(len(redisResult)) != int(redisReplicas):
-            returnFile.write('\n\n  there are issue with the replicas of redis.\n    replicas: '+str(redisReplicas)+'\n    exists: '+str(len(redisResult)))
-        else: 
-            returnFile.write('  all cluster pods thirdparty healthy !\n')
-    if coreFailed == 0 and thirdPFailed == 0:
-        returnFile.write('\n\n\n\nNO ERROR\n')
+    result=open('result.txt','w')
+    result.write('-----------------\nHKUBE HEALTH CHECK\n-----------------\n')
+    if len(errorD):
+        result.write('\nPod Error list:\n-----------------\n')
+        for value in errorD.keys():
+            result.write('error in pod: '+value+'\n')
+        result.write('\nsee error logs below')
+        printOut(errorD,result)
     else:
-        returnFile.write('\n\n\n\nFULL ERROR LOGS\n-----------------\n')
-        #returnFile.write(str(errorDic))
-        for errorPod in errorDic.keys():
-            returnFile.write('\n\n  Pod Name: '+errorPod+'\n--------------------')
-            for container in errorDic[errorPod]:
-                returnFile.write('\n\n    -    Container Name: '+str(container['name']))
-                returnFile.write('\n         Container Status: '+str(container['state'].keys()).replace("dict_keys(['","").replace("'])","")+'')
-                massage=container['state']
-                try:
-                    temp=massage['waiting']
-                    for value in temp.keys():
-                        returnFile.write('\n         '+str(value)+' : '+str(temp[value]))
-                except:
-                    try:
-                        temp=massage['running']
-                        for value in temp.keys():
-                            returnFile.write('\n         '+str(value)+' : '+str(temp[value]))
-                    except:
-                        temp=massage['terminated']
-                        for value in temp.keys():
-                            returnFile.write('\n         '+str(value)+' : '+str(temp[value]))
+        result.write('\nno errors!\n-----------------\n')
+    result.write('\nHKUBE CORE FULL LOGS:\n-----------------\n')
+    printOut(coresD,result)
+    result.write('THIRD PARTY FULL LOGS:\n-----------------\n')
+    printOut(thirdPartyD,result)
+    printOut(unknownD,result)
 
-    
-    returnFile.close() 
+    result.close()
     return flask.send_file("result.txt")
